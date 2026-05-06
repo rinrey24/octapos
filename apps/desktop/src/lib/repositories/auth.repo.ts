@@ -1,6 +1,7 @@
 import { dbSelect, dbExecute } from "@/lib/db";
 import { hashSecret, verifySecret } from "@/lib/crypto";
 import { generateId } from "@/lib/uuid";
+import { enqueue } from "@/lib/sync/queue";
 import type { User, Tenant, Outlet } from "@octapos/shared-types";
 
 export interface DbUser extends User {
@@ -147,12 +148,27 @@ export async function createCashier(
     [id, tenantId, fullName, pinHash]
   );
 
+  await enqueue("users", id, "insert", {
+    id, tenant_id: tenantId, full_name: fullName, role: "cashier", is_active: true,
+  });
+
   return { id, tenant_id: tenantId, email: null, full_name: fullName, role: "cashier", is_active: true, last_login_at: null };
 }
 
 /** Nonaktifkan user (soft delete). */
 export async function deactivateUser(userId: string): Promise<void> {
   await dbExecute(`UPDATE users SET is_active = 0 WHERE id = ?`, [userId]);
+
+  const rows = await dbSelect<{ id: string; tenant_id: string; email: string | null; full_name: string; role: string }>(
+    `SELECT id, tenant_id, email, full_name, role FROM users WHERE id = ?`, [userId]
+  );
+  const u = rows[0];
+  if (u) {
+    await enqueue("users", userId, "insert", {
+      id: u.id, tenant_id: u.tenant_id, email: u.email, full_name: u.full_name,
+      role: u.role, is_active: false,
+    });
+  }
 }
 
 /** Update PIN kasir. */
