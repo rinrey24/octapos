@@ -8,7 +8,7 @@ interface Props {
 }
 
 export default function SyncIndicator({ onSettings }: Props) {
-  const { status, pendingCount, lastSyncedAt } = useSyncStore();
+  const { status, pendingCount, failedCount, lastSyncedAt } = useSyncStore();
 
   const icon = {
     idle: <Cloud className="w-5 h-5 text-green-500" />,
@@ -19,9 +19,9 @@ export default function SyncIndicator({ onSettings }: Props) {
   }[status];
 
   const label = {
-    idle: lastSyncedAt ? `Tersinkron` : "Belum sync",
+    idle: lastSyncedAt ? "Tersinkron" : "Belum sync",
     syncing: "Menyinkron...",
-    error: "Gagal sync",
+    error: failedCount > 0 ? `${failedCount} gagal — buka pengaturan` : "Gagal sync",
     offline: "Offline",
     unconfigured: "Belum dikonfigurasi",
   }[status];

@@ -1,6 +1,6 @@
 import { pushPendingItems } from "./push";
 import { pullRemoteChanges } from "./pull";
-import { getPendingCount } from "./queue";
+import { getPendingCount, getFailedCount } from "./queue";
 import { getSupabaseClient } from "./config";
 import { useSyncStore } from "@/stores/sync.store";
 
@@ -32,17 +32,19 @@ async function runSync(): Promise<void> {
       _tenantId ? pullRemoteChanges(_tenantId) : Promise.resolve({ pulled: 0 }),
     ]);
 
-    const pushFailed = pushResult.status === "rejected" || (pushResult.status === "fulfilled" && pushResult.value.failed > 0);
+    const [pending, failed] = await Promise.all([getPendingCount(), getFailedCount()]);
+    store.setPendingCount(pending);
+    store.setFailedCount(failed);
 
-    store.setStatus(pushFailed ? "error" : "idle");
+    const pushFailed = pushResult.status === "rejected"
+      || (pushResult.status === "fulfilled" && pushResult.value.failed > 0);
+
+    store.setStatus(pushFailed ? "error" : failed > 0 ? "error" : "idle");
     store.setLastSyncedAt(new Date().toISOString());
-    store.setPendingCount(await getPendingCount());
 
-    if (pullResult.status === "rejected") {
-      store.setLastError("Pull failed: " + String(pullResult.reason));
-    } else {
-      store.setLastError(null);
-    }
+    const pushError = pushResult.status === "fulfilled" ? pushResult.value.lastError : null;
+    const pullError = pullResult.status === "rejected" ? String(pullResult.reason) : null;
+    store.setLastError(pushError ?? pullError);
   } catch (err) {
     store.setStatus("error");
     store.setLastError(String(err));

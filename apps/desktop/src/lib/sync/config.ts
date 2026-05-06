@@ -42,10 +42,27 @@ export async function clearSyncConfig(): Promise<void> {
   _client = null;
 }
 
+// Custom fetch that strips browser-identifying headers so Supabase API
+// accepts the service_role/secret key from inside Tauri WebView.
+function desktopFetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> {
+  const headers = new Headers(init?.headers);
+  headers.delete("Origin");
+  headers.delete("Referer");
+  headers.set("User-Agent", "OctaPOS-Desktop/1.0");
+  return fetch(input, { ...init, headers });
+}
+
 export async function getSupabaseClient(): Promise<SupabaseClient | null> {
   if (_client) return _client;
   const config = await getSyncConfig();
   if (!config) return null;
-  _client = createClient(config.supabaseUrl, config.supabaseKey);
+  _client = createClient(config.supabaseUrl, config.supabaseKey, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+      detectSessionInUrl: false,
+    },
+    global: { fetch: desktopFetch },
+  });
   return _client;
 }

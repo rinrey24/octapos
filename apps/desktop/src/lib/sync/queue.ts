@@ -57,3 +57,23 @@ export async function getPendingCount(): Promise<number> {
   );
   return rows[0]?.count ?? 0;
 }
+
+export async function getFailedCount(): Promise<number> {
+  const rows = await dbSelect<{ count: number }>(
+    `SELECT COUNT(*) as count FROM sync_queue WHERE status = 'failed'`
+  );
+  return rows[0]?.count ?? 0;
+}
+
+export async function resetFailedItems(): Promise<number> {
+  const rows = await dbSelect<{ count: number }>(
+    `SELECT COUNT(*) as count FROM sync_queue WHERE status = 'failed'`
+  );
+  const count = rows[0]?.count ?? 0;
+  if (count > 0) {
+    await dbExecute(
+      `UPDATE sync_queue SET status = 'pending', retry_count = 0 WHERE status = 'failed'`
+    );
+  }
+  return count;
+}

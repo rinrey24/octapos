@@ -1,16 +1,14 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { Store } from "lucide-react";
-import { createClient } from "@/lib/supabase/client";
+import { loginAction } from "@/actions/login";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 
 export default function LoginPage() {
-  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -22,19 +20,10 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      const supabase = createClient();
-      const { error: authError } = await supabase.auth.signInWithPassword({
-        email: email.trim(),
-        password,
-      });
-
-      if (authError) {
-        setError("Email atau password salah. Silakan coba lagi.");
-        return;
+      const result = await loginAction(email, password);
+      if (result?.error) {
+        setError(result.error);
       }
-
-      router.push("/dashboard");
-      router.refresh();
     } catch {
       setError("Terjadi kesalahan. Silakan coba lagi.");
     } finally {

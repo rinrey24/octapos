@@ -2,6 +2,7 @@ import { dbExecute } from "@/lib/db";
 import { hashSecret } from "@/lib/crypto";
 import { generateId } from "@/lib/uuid";
 import { isSetupDone } from "@/lib/repositories/auth.repo";
+import { enqueue } from "@/lib/sync/queue";
 
 /**
  * Inisialisasi data awal saat pertama kali aplikasi dijalankan.
@@ -65,6 +66,24 @@ export async function seedInitialData(opts: {
     `INSERT INTO app_settings (key, value) VALUES ('setup_done', 'true')`,
     []
   );
+
+  // Enqueue to sync queue so cloud sync picks these up
+  await enqueue("tenants", tenantId, "insert", {
+    id: tenantId, name: opts.tenantName, business_type: "retail", created_at: now, updated_at: now,
+  });
+  await enqueue("outlets", outletId, "insert", {
+    id: outletId, tenant_id: tenantId, name: opts.outletName,
+    receipt_header: `${opts.tenantName}\n${opts.outletName}`,
+    receipt_footer: "Terima kasih telah berkunjung!",
+  });
+  await enqueue("users", ownerId, "insert", {
+    id: ownerId, tenant_id: tenantId, email: opts.ownerEmail,
+    full_name: opts.ownerName, role: "owner", is_active: true,
+  });
+  await enqueue("users", cashierId, "insert", {
+    id: cashierId, tenant_id: tenantId, full_name: "Kasir Demo",
+    role: "cashier", is_active: true,
+  });
 
   return { tenantId, outletId };
 }

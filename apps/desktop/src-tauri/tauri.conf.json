@@ -39,7 +39,7 @@
     ],
     "windows": {
       "wix": {
-        "language": "id-ID"
+        "language": "en-US"
       }
     },
     "macOS": {
@@ -55,6 +55,10 @@
       "preloadConnections": [
         "sqlite:octapos.db"
       ]
+    },
+    "updater":{
+      "active": true,
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDEzOTY0QUZBNDIwMjUzRDQKUldUVVV3SkMra3FXRTEzRitEVTYvaVlWc2RzOUZ2RXdVVUNzQWZ6emJGUjNLckthUGhlSU1ZbEYK"
     }
   }
 }
