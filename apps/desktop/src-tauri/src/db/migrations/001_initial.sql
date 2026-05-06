@@ -1,0 +1,230 @@
+PRAGMA journal_mode=WAL;
+PRAGMA foreign_keys=ON;
+
+CREATE TABLE IF NOT EXISTS tenants (
+  id TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  business_type TEXT NOT NULL DEFAULT 'retail',
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS outlets (
+  id TEXT PRIMARY KEY,
+  tenant_id TEXT NOT NULL REFERENCES tenants(id),
+  name TEXT NOT NULL,
+  address TEXT,
+  phone TEXT,
+  timezone TEXT NOT NULL DEFAULT 'Asia/Jakarta',
+  receipt_header TEXT,
+  receipt_footer TEXT
+);
+
+CREATE TABLE IF NOT EXISTS users (
+  id TEXT PRIMARY KEY,
+  tenant_id TEXT NOT NULL REFERENCES tenants(id),
+  email TEXT,
+  full_name TEXT NOT NULL,
+  pin_hash TEXT,
+  password_hash TEXT,
+  role TEXT NOT NULL CHECK(role IN ('owner','admin','supervisor','cashier')),
+  is_active INTEGER NOT NULL DEFAULT 1,
+  last_login_at TEXT
+);
+
+CREATE TABLE IF NOT EXISTS user_outlets (
+  user_id TEXT NOT NULL REFERENCES users(id),
+  outlet_id TEXT NOT NULL REFERENCES outlets(id),
+  PRIMARY KEY (user_id, outlet_id)
+);
+
+CREATE TABLE IF NOT EXISTS categories (
+  id TEXT PRIMARY KEY,
+  tenant_id TEXT NOT NULL REFERENCES tenants(id),
+  name TEXT NOT NULL,
+  color TEXT,
+  sort_order INTEGER NOT NULL DEFAULT 0,
+  deleted_at TEXT,
+  synced_at TEXT,
+  version INTEGER NOT NULL DEFAULT 1
+);
+
+CREATE TABLE IF NOT EXISTS products (
+  id TEXT PRIMARY KEY,
+  tenant_id TEXT NOT NULL REFERENCES tenants(id),
+  sku TEXT,
+  barcode TEXT,
+  name TEXT NOT NULL,
+  category_id TEXT REFERENCES categories(id),
+  price REAL NOT NULL,
+  cost REAL,
+  tax_rate REAL NOT NULL DEFAULT 0,
+  image_url TEXT,
+  is_active INTEGER NOT NULL DEFAULT 1,
+  track_stock INTEGER NOT NULL DEFAULT 1,
+  unit TEXT NOT NULL DEFAULT 'pcs',
+  deleted_at TEXT,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  synced_at TEXT,
+  version INTEGER NOT NULL DEFAULT 1
+);
+
+CREATE TABLE IF NOT EXISTS product_variants (
+  id TEXT PRIMARY KEY,
+  product_id TEXT NOT NULL REFERENCES products(id),
+  name TEXT NOT NULL,
+  price_modifier REAL NOT NULL DEFAULT 0,
+  sku TEXT
+);
+
+CREATE TABLE IF NOT EXISTS modifiers (
+  id TEXT PRIMARY KEY,
+  tenant_id TEXT NOT NULL REFERENCES tenants(id),
+  name TEXT NOT NULL,
+  type TEXT NOT NULL DEFAULT 'single' CHECK(type IN ('single','multiple'))
+);
+
+CREATE TABLE IF NOT EXISTS modifier_options (
+  id TEXT PRIMARY KEY,
+  modifier_id TEXT NOT NULL REFERENCES modifiers(id),
+  name TEXT NOT NULL,
+  price_delta REAL NOT NULL DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS product_modifiers (
+  product_id TEXT NOT NULL REFERENCES products(id),
+  modifier_id TEXT NOT NULL REFERENCES modifiers(id),
+  PRIMARY KEY (product_id, modifier_id)
+);
+
+CREATE TABLE IF NOT EXISTS stock (
+  outlet_id TEXT NOT NULL REFERENCES outlets(id),
+  product_id TEXT NOT NULL REFERENCES products(id),
+  quantity REAL NOT NULL DEFAULT 0,
+  min_stock REAL NOT NULL DEFAULT 0,
+  updated_at TEXT NOT NULL,
+  PRIMARY KEY (outlet_id, product_id)
+);
+
+CREATE TABLE IF NOT EXISTS stock_movements (
+  id TEXT PRIMARY KEY,
+  outlet_id TEXT NOT NULL REFERENCES outlets(id),
+  product_id TEXT NOT NULL REFERENCES products(id),
+  type TEXT NOT NULL CHECK(type IN ('in','out','adjustment','transfer_in','transfer_out','sale','void')),
+  quantity REAL NOT NULL,
+  ref_type TEXT,
+  ref_id TEXT,
+  note TEXT,
+  user_id TEXT NOT NULL REFERENCES users(id),
+  created_at TEXT NOT NULL,
+  synced_at TEXT
+);
+
+CREATE TABLE IF NOT EXISTS transactions (
+  id TEXT PRIMARY KEY,
+  tenant_id TEXT NOT NULL,
+  outlet_id TEXT NOT NULL REFERENCES outlets(id),
+  invoice_no TEXT NOT NULL UNIQUE,
+  cashier_id TEXT NOT NULL REFERENCES users(id),
+  customer_id TEXT,
+  subtotal REAL NOT NULL,
+  discount_total REAL NOT NULL DEFAULT 0,
+  tax_total REAL NOT NULL DEFAULT 0,
+  service_charge REAL NOT NULL DEFAULT 0,
+  rounding REAL NOT NULL DEFAULT 0,
+  total REAL NOT NULL,
+  paid_amount REAL NOT NULL,
+  change_amount REAL NOT NULL DEFAULT 0,
+  status TEXT NOT NULL DEFAULT 'draft' CHECK(status IN ('draft','paid','void','refunded')),
+  payment_method TEXT NOT NULL CHECK(payment_method IN ('cash','qris','edc_debit','edc_credit','transfer','split')),
+  notes TEXT,
+  voided_at TEXT,
+  voided_by TEXT,
+  void_reason TEXT,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL,
+  synced_at TEXT,
+  device_id TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS transaction_items (
+  id TEXT PRIMARY KEY,
+  transaction_id TEXT NOT NULL REFERENCES transactions(id),
+  product_id TEXT NOT NULL REFERENCES products(id),
+  variant_id TEXT REFERENCES product_variants(id),
+  product_name_snapshot TEXT NOT NULL,
+  sku_snapshot TEXT,
+  price_snapshot REAL NOT NULL,
+  quantity REAL NOT NULL,
+  discount REAL NOT NULL DEFAULT 0,
+  subtotal REAL NOT NULL,
+  notes TEXT
+);
+
+CREATE TABLE IF NOT EXISTS transaction_item_modifiers (
+  item_id TEXT NOT NULL REFERENCES transaction_items(id),
+  modifier_option_id TEXT NOT NULL REFERENCES modifier_options(id),
+  name_snapshot TEXT NOT NULL,
+  price_snapshot REAL NOT NULL,
+  PRIMARY KEY (item_id, modifier_option_id)
+);
+
+CREATE TABLE IF NOT EXISTS transaction_payments (
+  id TEXT PRIMARY KEY,
+  transaction_id TEXT NOT NULL REFERENCES transactions(id),
+  method TEXT NOT NULL CHECK(method IN ('cash','qris','edc_debit','edc_credit','transfer','split')),
+  amount REAL NOT NULL,
+  reference_no TEXT,
+  paid_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS cash_sessions (
+  id TEXT PRIMARY KEY,
+  outlet_id TEXT NOT NULL REFERENCES outlets(id),
+  cashier_id TEXT NOT NULL REFERENCES users(id),
+  opening_cash REAL NOT NULL,
+  closing_cash REAL,
+  expected_cash REAL,
+  variance REAL,
+  opened_at TEXT NOT NULL,
+  closed_at TEXT,
+  notes TEXT,
+  synced_at TEXT
+);
+
+CREATE TABLE IF NOT EXISTS sync_queue (
+  id TEXT PRIMARY KEY,
+  table_name TEXT NOT NULL,
+  row_id TEXT NOT NULL,
+  action TEXT NOT NULL CHECK(action IN ('insert','update','delete')),
+  payload TEXT NOT NULL,
+  status TEXT NOT NULL DEFAULT 'pending' CHECK(status IN ('pending','synced','failed','conflict')),
+  error TEXT,
+  retry_count INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL,
+  synced_at TEXT
+);
+
+CREATE TABLE IF NOT EXISTS audit_log (
+  id TEXT PRIMARY KEY,
+  tenant_id TEXT NOT NULL,
+  user_id TEXT NOT NULL,
+  action TEXT NOT NULL,
+  entity TEXT NOT NULL,
+  entity_id TEXT NOT NULL,
+  before TEXT,
+  after TEXT,
+  created_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS app_settings (
+  key TEXT PRIMARY KEY,
+  value TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_transactions_outlet_created ON transactions(outlet_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_transactions_synced_at ON transactions(synced_at);
+CREATE INDEX IF NOT EXISTS idx_products_tenant_barcode ON products(tenant_id, barcode);
+CREATE INDEX IF NOT EXISTS idx_products_synced_at ON products(synced_at);
+CREATE INDEX IF NOT EXISTS idx_sync_queue_status ON sync_queue(status, created_at ASC);
