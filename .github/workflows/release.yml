@@ -6,6 +6,10 @@ on:
       - "v*"
   workflow_dispatch:
 
+permissions:
+  contents: write  # Ini penting untuk membuat releases
+  pull-requests: read
+
 jobs:
   build-tauri:
     strategy:
