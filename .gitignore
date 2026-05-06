@@ -43,3 +43,6 @@ coverage/
 # Misc
 *.tsbuildinfo
 .cache/
+
+.vercel
+.env*.local

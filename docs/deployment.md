@@ -41,7 +41,7 @@ Buat file `.env.local` di `apps/web/`:
 
 ```env
 NEXT_PUBLIC_SUPABASE_URL=https://xxxx.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJ...
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=sb_publishable_...
 SUPABASE_SERVICE_ROLE_KEY=eyJ...
 ```
 
@@ -63,7 +63,7 @@ npx vercel --prod
 3. **Root Directory**: `apps/web`
 4. Tambah Environment Variables:
    - `NEXT_PUBLIC_SUPABASE_URL`
-   - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
+   - `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`
    - `SUPABASE_SERVICE_ROLE_KEY`
 5. Klik **Deploy**
 
@@ -173,7 +173,7 @@ Setelah instalasi pertama, OctaPOS otomatis cek update saat startup. Update dial
 | Variable | Keterangan | Wajib |
 |---|---|---|
 | `NEXT_PUBLIC_SUPABASE_URL` | URL project Supabase | ✅ |
-| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Anon key Supabase | ✅ |
+| `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Publishable key Supabase | ✅ |
 | `SUPABASE_SERVICE_ROLE_KEY` | Service role key (server-side only) | ✅ |
 
 ---
