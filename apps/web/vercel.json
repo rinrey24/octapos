@@ -2,10 +2,5 @@
   "buildCommand": "cd ../.. && pnpm --filter @octapos/web build",
   "outputDirectory": ".next",
   "framework": "nextjs",
-  "installCommand": "cd ../.. && pnpm install --frozen-lockfile",
-  "env": {
-    "NEXT_PUBLIC_SUPABASE_URL": "@next_public_supabase_url",
-    "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY": "@next_public_supabase_publishable_key",
-    "SUPABASE_SERVICE_ROLE_KEY": "@supabase_service_role_key"
-  }
+  "installCommand": "cd ../.. && pnpm install --frozen-lockfile"
 }
